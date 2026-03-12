@@ -28,43 +28,61 @@ const State = {
 };
 
 // ===== ROUTER =====
-const pageContent = document.getElementById('page-content');
-const navBtns = document.querySelectorAll('.nav-btn');
+let pageContent;
+let navBtns;
 
-window.navigate = async function (tab, animeId = null) {
-  if (tab !== 'detail') {
-    State.previousTab = tab;
+async function initApp() {
+  pageContent = document.getElementById('page-content');
+  navBtns = document.querySelectorAll('.nav-btn');
+
+  if (!pageContent) {
+    console.error("Xatolik: 'page-content' elementi topilmadi!");
+    return;
   }
-  State.currentTab = tab;
-  State.currentAnime = animeId;
+
+  window.navigate = async function (tab, animeId = null) {
+    try {
+      if (tab !== 'detail') {
+        State.previousTab = tab;
+      }
+      State.currentTab = tab;
+      State.currentAnime = animeId;
+
+      navBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+
+      const bottomNav = document.getElementById('bottom-nav');
+      if (bottomNav) bottomNav.style.display = animeId ? 'none' : 'flex';
+
+      pageContent.style.animation = 'none';
+      pageContent.offsetHeight;
+      pageContent.style.animation = 'fadeIn 0.25s ease';
+
+      switch (tab) {
+        case 'popular': await renderPopular(); break;
+        case 'search': await renderSearch(); break;
+        case 'saved': await renderSaved(); break;
+        case 'profile': await renderProfile(); break;
+        case 'detail': await renderDetail(animeId); break;
+      }
+    } catch (error) {
+      console.error("Navigatsiya xatosi:", error);
+      pageContent.innerHTML = `<div class="search-empty"><p>Xatolik yuz berdi. Iltimos saifani yangilang.</p></div>`;
+    }
+  }
 
   navBtns.forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tab);
+    btn.addEventListener('click', () => window.navigate(btn.dataset.tab));
   });
 
-  const bottomNav = document.getElementById('bottom-nav');
-  if (bottomNav) bottomNav.style.display = animeId ? 'none' : 'flex';
-
-  pageContent.style.animation = 'none';
-  pageContent.offsetHeight;
-  pageContent.style.animation = 'fadeIn 0.25s ease';
-
-  switch (tab) {
-    case 'popular': renderPopular(); break;
-    case 'search': renderSearch(); break;
-    case 'saved': renderSaved(); break;
-    case 'profile': renderProfile(); break;
-    case 'detail': renderDetail(animeId); break;
-  }
+  // Start the app
+  window.navigate('popular');
 }
 
 window.goBack = function () {
   window.navigate(State.previousTab);
 };
-
-navBtns.forEach(btn => {
-  btn.addEventListener('click', () => window.navigate(btn.dataset.tab));
-});
 
 // ===== POPULAR PAGE =====
 async function renderPopular() {
@@ -243,4 +261,4 @@ window.toggleSaveAnime = function (animeId) {
 };
 
 // Start the app
-window.navigate('popular');
+initApp();
