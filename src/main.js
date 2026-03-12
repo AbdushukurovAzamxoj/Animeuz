@@ -9,7 +9,6 @@ const State = {
   previousTab: 'popular',
   currentAnime: null,
 
-  // --- Saved ---
   getSaved() {
     try { return JSON.parse(localStorage.getItem('animeuz_saved') || '[]'); }
     catch { return []; }
@@ -32,15 +31,18 @@ let pageContent;
 let navBtns;
 
 async function initApp() {
+  console.log("AnimeUZ initApp starting...");
   pageContent = document.getElementById('page-content');
   navBtns = document.querySelectorAll('.nav-btn');
 
   if (!pageContent) {
-    console.error("Xatolik: 'page-content' elementi topilmadi!");
+    console.warn("Retrying to find page-content in 500ms...");
+    setTimeout(initApp, 500);
     return;
   }
 
   window.navigate = async function (tab, animeId = null) {
+    console.log("Navigating to:", tab, animeId);
     try {
       if (tab !== 'detail') {
         State.previousTab = tab;
@@ -48,9 +50,11 @@ async function initApp() {
       State.currentTab = tab;
       State.currentAnime = animeId;
 
-      navBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-      });
+      if (navBtns) {
+        navBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+      }
 
       const bottomNav = document.getElementById('bottom-nav');
       if (bottomNav) bottomNav.style.display = animeId ? 'none' : 'flex';
@@ -58,6 +62,8 @@ async function initApp() {
       pageContent.style.animation = 'none';
       pageContent.offsetHeight;
       pageContent.style.animation = 'fadeIn 0.25s ease';
+
+      pageContent.innerHTML = `<div class="search-empty"><p>Yuklanmoqda...</p></div>`;
 
       switch (tab) {
         case 'popular': await renderPopular(); break;
@@ -67,8 +73,8 @@ async function initApp() {
         case 'detail': await renderDetail(animeId); break;
       }
     } catch (error) {
-      console.error("Navigatsiya xatosi:", error);
-      pageContent.innerHTML = `<div class="search-empty"><p>Xatolik yuz berdi. Iltimos saifani yangilang.</p></div>`;
+      console.error("Navigation error:", error);
+      pageContent.innerHTML = `<div class="search-empty"><p style="color:red">Xatolik yuz berdi: ${error.message}</p></div>`;
     }
   }
 
@@ -76,8 +82,8 @@ async function initApp() {
     btn.addEventListener('click', () => window.navigate(btn.dataset.tab));
   });
 
-  // Start the app
-  window.navigate('popular');
+  // Initial load
+  await window.navigate('popular');
 }
 
 window.goBack = function () {
@@ -91,29 +97,31 @@ async function renderPopular() {
   if (animelar.length === 0) {
     pageContent.innerHTML = `
       <div class="search-empty">
-        <p>Hali animelar yo'q</p>
+        <p>Hozircha animelar yo'q. Bazaga ma'lumot qo'shing.</p>
       </div>
     `;
     return;
   }
 
   const featured = animelar[0];
+  const list = animelar.slice(1);
 
   pageContent.innerHTML = `
-    <div class="hero-banner" onclick="navigate('detail', '${featured.id}')">
-      <img src="${featured.rasm || PLACEHOLDER_POSTER}" alt="${featured.nomi}" />
-      <div class="hero-gradient"></div>
-      <div class="hero-info">
-        <div class="hero-badge">${featured.qism ? featured.qism + '-qism' : 'Yangi'}</div>
-        <div class="hero-title">${featured.nomi}</div>
+    <div class="featured-card" onclick="navigate('detail', '${featured.id}')">
+      <img src="${featured.rasm || PLACEHOLDER_POSTER}" alt="${featured.nomi}" class="featured-img" />
+      <div class="featured-overlay">
+        <div class="featured-title">${featured.nomi}</div>
+        <div class="featured-subtitle">Eng so'nggi qo'shilgan anime</div>
       </div>
     </div>
 
-    <div class="section-header">
-      <div class="section-title">Yangi qo'shilgan</div>
-    </div>
-    <div class="anime-grid">
-      ${animelar.map(a => animeCard(a)).join('')}
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Yangi qismlar</h2>
+      </div>
+      <div class="anime-grid">
+        ${animelar.map(anime => animeCard(anime)).join('')}
+      </div>
     </div>
   `;
 }
@@ -131,7 +139,6 @@ function animeCard(anime) {
   `;
 }
 
-// Track views
 window.recordView = async function (id, currentViews) {
   await updateAnime(id, { kurishlar: (currentViews || 0) + 1 });
 }
@@ -139,75 +146,63 @@ window.recordView = async function (id, currentViews) {
 // ===== SEARCH PAGE =====
 async function renderSearch() {
   const animelar = await getAnimelar();
-
   pageContent.innerHTML = `
     <div class="search-container">
-      <div class="page-title" style="padding:8px 0 16px;">Qidiruv</div>
       <div class="search-bar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="search-input" placeholder="Anime nomini kiriting..." autocomplete="off" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px; color:var(--text-muted);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Anime qidirish..." oninput="handleSearch(this.value)" />
       </div>
-      <div class="search-results" id="search-results">
-        ${renderResultList(animelar)}
+      <div id="search-results" class="anime-grid">
+         ${animelar.map(anime => animeCard(anime)).join('')}
       </div>
     </div>
   `;
-
-  const input = document.getElementById('search-input');
-  input.addEventListener('input', () => {
-    const query = input.value.trim().toLowerCase();
-    const results = animelar.filter(a => a.nomi.toLowerCase().includes(query));
-    document.getElementById('search-results').innerHTML = results.length
-      ? renderResultList(results)
-      : `<div class="search-empty"><p>Hech narsa topilmadi</p></div>`;
-  });
 }
 
-function renderResultList(list) {
-  return list.map(a => `
-    <div class="search-result-item" onclick="navigate('detail', '${a.id}')">
-      <div class="search-result-poster">
-        <img src="${a.rasm || PLACEHOLDER_POSTER}" alt="${a.nomi}" loading="lazy" />
-      </div>
-      <div class="search-result-info">
-        <div class="search-result-title">${a.nomi} ${a.qism ? `(${a.qism}-qism)` : ''}</div>
-      </div>
-    </div>
-  `).join('');
+window.handleSearch = async function (query) {
+  const animelar = await getAnimelar();
+  const results = animelar.filter(a => a.nomi.toLowerCase().includes(query.toLowerCase()));
+  const resultsContainer = document.getElementById('search-results');
+  if (resultsContainer) {
+    resultsContainer.innerHTML = results.length ? results.map(a => animeCard(a)).join('') : '<div class="search-empty"><p>Hech narsa topilmadi</p></div>';
+  }
 }
 
 // ===== SAVED PAGE =====
 async function renderSaved() {
-  const animelar = await getAnimelar();
   const savedIds = State.getSaved();
-  const savedAnime = animelar.filter(a => savedIds.includes(a.id));
+  const animelar = await getAnimelar();
+  const savedAnimelar = animelar.filter(a => savedIds.includes(a.id));
 
   pageContent.innerHTML = `
-    <div class="saved-container">
-      <div class="saved-header">Sevimlilar</div>
-      ${savedAnime.length ? `
+    <div class="section-container">
+      <h2 class="section-title">Saqlanganlar</h2>
+      ${savedAnimelar.length ? `
         <div class="anime-grid">
-          ${savedAnime.map(a => animeCard(a)).join('')}
+          ${savedAnimelar.map(a => animeCard(a)).join('')}
         </div>
-      ` : `
-        <div class="saved-empty">
-          <p>Sevimlilar ro'yxati bo'sh</p>
-        </div>
-      `}
+      ` : `<div class="search-empty"><p>Saqlangan animelar yo'q</p></div>`}
     </div>
   `;
 }
 
 // ===== PROFILE PAGE =====
-function renderProfile() {
+async function renderProfile() {
   pageContent.innerHTML = `
     <div class="profile-container">
-      <div class="profile-header-section">
-        <div class="profile-avatar">A</div>
+      <div class="profile-header">
+        <div class="profile-avatar">U</div>
         <div class="profile-name">Foydalanuvchi</div>
       </div>
       <div class="profile-menu">
-        <button class="profile-menu-item" onclick="navigate('saved')">Sevimlilar</button>
+        <div class="profile-menu-item">
+           <span>Tungi rejim</span>
+           <div style="width:40px; height:20px; background:var(--accent); border-radius:10px;"></div>
+        </div>
+        <div class="profile-menu-item" onclick="window.location.href='/admin.html'">
+           <span>Admin Panel</span>
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
       </div>
     </div>
   `;
@@ -217,10 +212,9 @@ function renderProfile() {
 async function renderDetail(animeId) {
   const animelar = await getAnimelar();
   const anime = animelar.find(a => a.id === animeId);
+  if (!anime) return;
 
-  if (!anime) { window.navigate('popular'); return; }
-
-  const isSaved = State.isSaved(anime.id);
+  const isSaved = State.isSaved(animeId);
 
   pageContent.innerHTML = `
     <div class="detail-page">
@@ -238,7 +232,6 @@ async function renderDetail(animeId) {
         <div class="detail-title">${anime.nomi} ${anime.qism ? `(${anime.qism}-qism)` : ''}</div>
         <div class="detail-actions">
            <a href="${anime.url}" target="_blank" onclick="recordView('${anime.id}', ${anime.kurishlar || 0})" class="detail-action-btn primary" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px; margin-right:8px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Ko'rish (Telegram)
           </a>
           <button class="detail-action-btn ${isSaved ? 'saved' : 'secondary'}" onclick="toggleSaveAnime('${anime.id}')" id="save-btn">
@@ -251,14 +244,18 @@ async function renderDetail(animeId) {
   `;
 }
 
-window.toggleSaveAnime = function (animeId) {
-  const nowSaved = State.toggleSaved(animeId);
+window.toggleSaveAnime = function (id) {
+  const isSaved = State.toggleSaved(id);
   const btn = document.getElementById('save-btn');
   if (btn) {
-    btn.className = `detail-action-btn ${nowSaved ? 'saved' : 'secondary'}`;
-    btn.textContent = nowSaved ? 'Saqlangan' : 'Saqlash';
+    btn.textContent = isSaved ? 'Saqlangan' : 'Saqlash';
+    btn.className = `detail-action-btn ${isSaved ? 'saved' : 'secondary'}`;
   }
-};
+}
 
-// Start the app
-initApp();
+// Safer initialization
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

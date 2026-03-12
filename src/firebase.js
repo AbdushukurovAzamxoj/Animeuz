@@ -12,13 +12,21 @@ const firebaseConfig = {
   measurementId: "G-8QG1TLL6HS"
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+let db;
+let storage;
+
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} catch (error) {
+  console.error("Firebase initialize error:", error);
+}
 
 // Bazaga anime qo'shish
 export const addAnime = async (name, link, episode) => {
   try {
+    if (!db) throw new Error("Database not initialized");
     await addDoc(collection(db, "animelar"), {
       nomi: name,
       url: link,
@@ -29,7 +37,7 @@ export const addAnime = async (name, link, episode) => {
     });
     return true;
   } catch (e) {
-    console.error("Xato:", e);
+    console.error("addAnime error:", e);
     return false;
   }
 };
@@ -37,21 +45,23 @@ export const addAnime = async (name, link, episode) => {
 // Anime o'chirish
 export const deleteAnime = async (id) => {
   try {
+    if (!db) throw new Error("Database not initialized");
     await deleteDoc(doc(db, "animelar", id));
     return true;
   } catch (e) {
-    console.error("O'chirishda xato:", e);
+    console.error("deleteAnime error:", e);
     return false;
   }
 };
 
-// Anime tahrirlash (masalan: Premium toggle yoki nomini o'zgartirish)
+// Anime tahrirlash
 export const updateAnime = async (id, data) => {
   try {
+    if (!db) throw new Error("Database not initialized");
     await updateDoc(doc(db, "animelar", id), data);
     return true;
   } catch (e) {
-    console.error("Yangilashda xato:", e);
+    console.error("updateAnime error:", e);
     return false;
   }
 };
@@ -59,6 +69,7 @@ export const updateAnime = async (id, data) => {
 // Statistika olish
 export const getAdminStats = async () => {
   try {
+    if (!db) throw new Error("Database not initialized");
     const querySnapshot = await getDocs(collection(db, "animelar"));
     let totalViews = 0;
     let premiumCount = 0;
@@ -73,18 +84,26 @@ export const getAdminStats = async () => {
       totalAnime: querySnapshot.size,
       totalViews,
       premiumCount,
-      totalUsers: Math.floor(totalViews / 3) + 7, // Hozircha taxminiy userlar soni
-      activeSubs: Math.floor(premiumCount * 1.2) + 2 // Taxminiy obuna bo'lganlar
+      totalUsers: Math.floor(totalViews / 3) + 7,
+      activeSubs: Math.floor(premiumCount * 1.2) + 2
     };
   } catch (e) {
-    console.error("Statistika olishda xato:", e);
+    console.error("getAdminStats error:", e);
     return null;
   }
 };
 
 // Bazadan animelarni olish
 export const getAnimelar = async () => {
-  const q = query(collection(db, "animelar"), orderBy("vaqti", "desc"));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    if (!db) throw new Error("Database not initialized");
+    const q = query(collection(db, "animelar"), orderBy("vaqti", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (e) {
+    console.error("getAnimelar error:", e);
+    return [];
+  }
 };
+
+export { db, storage };
