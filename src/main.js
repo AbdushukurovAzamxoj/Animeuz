@@ -292,7 +292,7 @@ const State = {
 const pageContent = document.getElementById('page-content');
 const navBtns = document.querySelectorAll('.nav-btn');
 
-function navigate(tab, animeId = null, episodeNum = null) {
+const navigate = window.navigate = function (tab, animeId = null, episodeNum = null) {
   // Always refresh data when navigating to ensure current state
   ANIME_DATA = getAnimes();
 
@@ -320,16 +320,26 @@ function navigate(tab, animeId = null, episodeNum = null) {
   }
 }
 
+// Initial navigation
+navigate('popular');
+
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.tab));
 });
 
 // ===== POPULAR PAGE =====
 let heroIndex = 0;
-const heroAnime = [ANIME_DATA[0], ANIME_DATA[2], ANIME_DATA[3], ANIME_DATA[5]];
 
-function renderPopular() {
-  const featured = heroAnime[heroIndex];
+let renderPopular = function () {
+  ANIME_DATA = getAnimes(); // Always refresh data first
+
+  ANIME_DATA = getAnimes(); // Refresh before rendering
+  const heroAnime = [ANIME_DATA[0], ANIME_DATA[2], ANIME_DATA[3], ANIME_DATA[5]].filter(Boolean);
+  const featured = heroAnime[heroIndex] || ANIME_DATA[0];
+  if (!featured) {
+    pageContent.innerHTML = '<div class="search-empty"><p>Hali rasmimlar yo\'q</p></div>';
+    return;
+  }
   const trending = ANIME_DATA.slice(0, 9);
   const recent = ANIME_DATA.slice(3);
 
@@ -416,7 +426,9 @@ function animeCard(anime) {
 }
 
 // ===== SEARCH PAGE =====
-function renderSearch() {
+let renderSearch = function () {
+  ANIME_DATA = getAnimes();
+
   pageContent.innerHTML = `
     <div class="search-container">
       <div class="page-title" style="padding:8px 0 16px;">Qidiruv</div>
@@ -464,7 +476,9 @@ function renderAllAnimeList(list) {
 }
 
 // ===== SAVED PAGE =====
-function renderSaved() {
+let renderSaved = function () {
+  ANIME_DATA = getAnimes();
+
   const savedIds = State.getSaved();
   const savedAnime = ANIME_DATA.filter(a => savedIds.includes(a.id));
 
@@ -741,7 +755,9 @@ function showToast(msg) {
 }
 
 // ===== ANIME DETAIL PAGE =====
-function renderDetail(animeId, episodeNum = null) {
+let renderDetail = function (animeId, episodeNum = null) {
+  ANIME_DATA = getAnimes();
+
   const anime = ANIME_DATA.find(a => a.id === animeId);
   if (!anime) { navigate('popular'); return; }
 
@@ -816,7 +832,7 @@ function renderDetail(animeId, episodeNum = null) {
           ${anime.episodes.map(ep => {
     const locked = State.isEpisodeLocked(anime, ep.num);
     return `
-              <button class="episode-item ${activeEp === ep.num ? 'active' : ''} ${locked ? 'locked' : ''}" onclick="${locked ? `showPaymentModal(${anime.id})` : `navigate('detail', ${anime.id}, ${ep.num})`}">
+              <button class="episode-item ${activeEpNum === ep.num ? 'active' : ''} ${locked ? 'locked' : ''}" onclick="${locked ? `showPaymentModal(${anime.id})` : `navigate('detail', ${anime.id}, ${ep.num})`}">
                 <div class="episode-num">${ep.num}</div>
                 <div class="episode-info">
                   <div class="episode-name">${ep.title}</div>
@@ -880,8 +896,7 @@ window.toggleSaveAnime = function (animeId) {
   }
 };
 
-// Make navigate available globally
-window.navigate = navigate;
+// navigate already assigned to window above
 
 // ===== INIT =====
 async function initializePosters() {
@@ -898,30 +913,28 @@ async function initializePosters() {
   }
 }
 
-// Wrap existing render functions to trigger poster initialization
-const originalRenderPopular = renderPopular;
-renderPopular = function () {
-  originalRenderPopular();
-  initializePosters();
+// Setup wrapping
+const wrapWithPosters = (originalFn) => {
+  return function (...args) {
+    originalFn(...args);
+    initializePosters();
+  };
 };
 
-const originalRenderSearch = renderSearch;
-renderSearch = function () {
-  originalRenderSearch();
-  initializePosters();
-};
+const _origPopular = renderPopular;
+renderPopular = wrapWithPosters(_origPopular);
 
-const originalRenderSaved = renderSaved;
-renderSaved = function () {
-  originalRenderSaved();
-  initializePosters();
-};
+const _origSearch = renderSearch;
+renderSearch = wrapWithPosters(_origSearch);
 
-const originalRenderDetail = renderDetail;
-renderDetail = function (id, ep) {
-  originalRenderDetail(id, ep);
-  initializePosters();
-};
+const _origSaved = renderSaved;
+renderSaved = wrapWithPosters(_origSaved);
 
-navigate('popular');
+const _origDetail = renderDetail;
+renderDetail = wrapWithPosters(_origDetail);
+
+// Initialize
+window.onload = () => {
+  navigate('popular');
+};
 
