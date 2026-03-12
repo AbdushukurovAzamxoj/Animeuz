@@ -16,9 +16,11 @@ let db;
 let storage;
 
 try {
+  console.log("Firebase initializing with Project ID:", firebaseConfig.projectId);
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   storage = getStorage(app);
+  console.log("Firebase initialized successfully");
 } catch (error) {
   console.error("Firebase initialize error:", error);
 }
@@ -26,8 +28,8 @@ try {
 // Bazaga anime qo'shish
 export const addAnime = async (name, link, episode) => {
   try {
-    if (!db) throw new Error("Database not initialized");
-    await addDoc(collection(db, "animelar"), {
+    if (!db) throw new Error("Database initialized bo'lmadi");
+    const docRef = await addDoc(collection(db, "animelar"), {
       nomi: name,
       url: link,
       qism: episode,
@@ -35,6 +37,7 @@ export const addAnime = async (name, link, episode) => {
       kurishlar: 0,
       vaqti: new Date()
     });
+    console.log("Anime qo'shildi, ID:", docRef.id);
     return true;
   } catch (e) {
     console.error("addAnime error:", e);
@@ -45,7 +48,7 @@ export const addAnime = async (name, link, episode) => {
 // Anime o'chirish
 export const deleteAnime = async (id) => {
   try {
-    if (!db) throw new Error("Database not initialized");
+    if (!db) throw new Error("Database initialized bo'lmadi");
     await deleteDoc(doc(db, "animelar", id));
     return true;
   } catch (e) {
@@ -57,7 +60,7 @@ export const deleteAnime = async (id) => {
 // Anime tahrirlash
 export const updateAnime = async (id, data) => {
   try {
-    if (!db) throw new Error("Database not initialized");
+    if (!db) throw new Error("Database initialized bo'lmadi");
     await updateDoc(doc(db, "animelar", id), data);
     return true;
   } catch (e) {
@@ -69,7 +72,7 @@ export const updateAnime = async (id, data) => {
 // Statistika olish
 export const getAdminStats = async () => {
   try {
-    if (!db) throw new Error("Database not initialized");
+    if (!db) return null;
     const querySnapshot = await getDocs(collection(db, "animelar"));
     let totalViews = 0;
     let premiumCount = 0;
@@ -93,16 +96,25 @@ export const getAdminStats = async () => {
   }
 };
 
-// Bazadan animelarni olish
+// Bazadan animelarni olish (ODDIY FETCH - orderBy'siz)
 export const getAnimelar = async () => {
   try {
-    if (!db) throw new Error("Database not initialized");
-    const q = query(collection(db, "animelar"), orderBy("vaqti", "desc"));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (!db) throw new Error("Database initialized bo'lmadi");
+    console.log("Baza'dan ma'lumot so'ralmoqda...");
+
+    // orderBy ni vaqtincha olib tashlaymiz (index xatosi yoki timeout bo'lmasligi uchun)
+    const colRef = collection(db, "animelar");
+    const querySnapshot = await getDocs(colRef);
+
+    console.log("Baza'dan javob keldi, hujjatlar soni:", querySnapshot.size);
+
+    let animelar = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // JS orqali sort qilamiz
+    return animelar.sort((a, b) => (b.vaqti?.seconds || 0) - (a.vaqti?.seconds || 0));
   } catch (e) {
     console.error("getAnimelar error:", e);
-    return [];
+    throw e; // Error'ni main.js ga qaytaramiz
   }
 };
 
