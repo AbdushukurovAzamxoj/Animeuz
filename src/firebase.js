@@ -23,6 +23,40 @@ try {
   console.error("Firebase Initialization Error:", error);
 }
 
+// REST API Fallback Helper
+const simplifyFirestoreDoc = (doc) => {
+  const simplified = { id: doc.name.split('/').pop() };
+  for (const key in doc.fields) {
+    const valueObj = doc.fields[key];
+    const type = Object.keys(valueObj)[0];
+    let val = valueObj[type];
+    if (type === 'integerValue') val = parseInt(val);
+    if (type === 'booleanValue') val = !!val;
+    if (type === 'timestampValue') val = new Date(val);
+    simplified[key] = val;
+  }
+  return simplified;
+};
+
+export const getAnimelarREST = async () => {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/animelar`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("REST API Fetch Failed");
+    const data = await response.json();
+    if (!data.documents) return [];
+
+    return data.documents.map(simplifyFirestoreDoc).sort((a, b) => {
+      const tA = a.vaqti ? new Date(a.vaqti).getTime() : 0;
+      const tB = b.vaqti ? new Date(b.vaqti).getTime() : 0;
+      return tB - tA;
+    });
+  } catch (error) {
+    console.error("REST Error:", error);
+    return [];
+  }
+};
+
 // Global helper to create a consistent anime object
 const createAnimeObject = (name, url, episode) => {
   return {
@@ -32,7 +66,7 @@ const createAnimeObject = (name, url, episode) => {
     premium: false,
     kurishlar: 0,
     vaqti: new Date(),
-    rasm: "" // Poster removed as per user request, but field kept for structure
+    rasm: ""
   };
 };
 
@@ -95,15 +129,28 @@ export const getAdminStats = async () => {
       activeSubs: Math.floor(premiumCount * 1.5) + 1
     };
   } catch (e) {
-    console.error("getAdminStats xatolik:", e);
-    return null;
+    console.warn("SDK Stats failed, using REST fallback...");
+    const animelar = await getAnimelarREST();
+    let totalViews = 0;
+    let premiumCount = 0;
+    animelar.forEach(a => {
+      totalViews += (a.kurishlar || 0);
+      if (a.premium) premiumCount++;
+    });
+    return {
+      totalAnime: animelar.length,
+      totalViews,
+      premiumCount,
+      totalUsers: Math.floor(totalViews / 2.5) + 5,
+      activeSubs: Math.floor(premiumCount * 1.5) + 1
+    };
   }
 };
 
 // Bazadan animelarni olish (Resilient version)
 export const getAnimelar = async () => {
-  if (!db) return [];
   try {
+    if (!db) throw new Error("DB Offline");
     const colRef = collection(db, "animelar");
     const querySnapshot = await getDocs(colRef);
     let results = querySnapshot.docs.map(doc => {
@@ -111,22 +158,20 @@ export const getAnimelar = async () => {
       return {
         id: doc.id,
         ...data,
-        // Ensure fields exist for the UI
         premium: data.premium || false,
         kurishlar: data.kurishlar || 0,
         qism: data.qism || "1"
       };
     });
 
-    // Sort logic
     return results.sort((a, b) => {
       const timeA = a.vaqti?.toMillis ? a.vaqti.toMillis() : (a.vaqti instanceof Date ? a.vaqti.getTime() : 0);
       const timeB = b.vaqti?.toMillis ? b.vaqti.toMillis() : (b.vaqti instanceof Date ? b.vaqti.getTime() : 0);
       return timeB - timeA;
     });
   } catch (e) {
-    console.error("getAnimelar xatolik:", e);
-    return [];
+    console.warn("SDK Fetch failed, using REST fallback...");
+    return await getAnimelarREST();
   }
 };
 

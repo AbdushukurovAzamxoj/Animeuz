@@ -101,15 +101,14 @@ if (document.readyState === 'loading') {
 
 // ===== PAGES =====
 async function renderPopular() {
-  debugLog("Ma'lumotlar so'ralmoqda...");
+  debugLog("Ma'lumotlar olinmoqda...");
 
-  // Timeoutni 10 soniyaga oshiramiz
-  const TIMEOUT_MS = 10000;
+  const TIMEOUT_MS = 15000;
 
   try {
     const firebasePromise = getAnimelar();
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Baza javob bermadi (Time Out)")), TIMEOUT_MS)
+      setTimeout(() => reject(new Error("Baza juda sekin javob berdi (Time Out)")), TIMEOUT_MS)
     );
 
     const animelar = await Promise.race([firebasePromise, timeoutPromise]);
@@ -142,10 +141,10 @@ async function renderPopular() {
       </div>
     `;
   } catch (error) {
-    debugLog("FIREBASE XATOSI: " + error.message, "orange");
+    debugLog("MUAMMO: " + error.message, "orange");
     pageContent.innerHTML = `
       <div class="search-empty">
-        <p style="color:orange">Baza bilan bog'lanishda xatolik: ${error.message}</p>
+        <p style="color:orange">Baza ulanishida qiyinchilik: ${error.message}</p>
         <button onclick="window.location.reload()" style="background:var(--accent); border:none; padding:8px 16px; border-radius:4px; color:white; margin-top:10px; cursor:pointer;">Qayta urinish</button>
       </div>
     `;
