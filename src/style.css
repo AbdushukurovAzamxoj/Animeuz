@@ -43,6 +43,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* PREMIUM BADGES */
+.premium-badge-top {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.premium-detail-badge {
+  position: absolute;
+  top: 80px;
+  left: 20px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
 #app {
   max-width: 480px;
   margin: 0 auto;
@@ -293,13 +321,15 @@ body {
   position: absolute;
   top: 6px;
   right: 6px;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--accent);
   color: #fff;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
+  z-index: 2;
 }
+
 
 .anime-card-title {
   font-size: 12px;
