@@ -320,8 +320,7 @@ const navigate = window.navigate = function (tab, animeId = null, episodeNum = n
   }
 }
 
-// Initial navigation
-navigate('popular');
+// Initial navigation moved to end of file
 
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.tab));
@@ -332,8 +331,6 @@ let heroIndex = 0;
 
 let renderPopular = function () {
   ANIME_DATA = getAnimes(); // Always refresh data first
-
-  ANIME_DATA = getAnimes(); // Refresh before rendering
   const heroAnime = [ANIME_DATA[0], ANIME_DATA[2], ANIME_DATA[3], ANIME_DATA[5]].filter(Boolean);
   const featured = heroAnime[heroIndex] || ANIME_DATA[0];
   if (!featured) {
@@ -934,7 +931,5 @@ const _origDetail = renderDetail;
 renderDetail = wrapWithPosters(_origDetail);
 
 // Initialize
-window.onload = () => {
-  navigate('popular');
-};
+navigate('popular');
 
