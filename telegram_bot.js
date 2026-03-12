@@ -110,6 +110,8 @@ bot.on('message', async (msg) => {
                 nomi: nomi,
                 qism: qism,
                 url: link,
+                premium: false,
+                kurishlar: 0,
                 vaqti: new Date()
             });
 
