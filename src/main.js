@@ -201,6 +201,23 @@ function setupEventListeners() {
     showToast("Ro'yxatga qo'shildi!");
   });
 
+  // Discovery Button
+  const btnDiscovery = document.getElementById('btnDiscovery');
+  if (btnDiscovery) {
+    btnDiscovery.addEventListener('click', () => {
+      if (ANIME_DATA.length === 0) {
+        showToast("Hozircha animelar yo'q!");
+        return;
+      }
+      const randomIdx = Math.floor(Math.random() * ANIME_DATA.length);
+      const randomAnime = ANIME_DATA[randomIdx];
+      showToast("Siz uchun ajoyib anime topdik! ✨");
+      setTimeout(() => {
+        openModal(randomAnime.id);
+      }, 500);
+    });
+  }
+
   btnLogin.addEventListener('click', () => {
     window.location.href = 'login.html';
   });
