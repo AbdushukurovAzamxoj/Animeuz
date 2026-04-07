@@ -1,158 +1,210 @@
 <!DOCTYPE html>
 <html lang="uz">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AnimeUZ — Admin Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="/src/admin.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel | AnimeUZ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+  <link rel="stylesheet" href="./src/admin.css" />
 </head>
+<body class="admin-body">
 
-<body>
-    <div id="admin-app">
-        <div class="admin-layout">
-            <!-- Sidebar -->
-            <aside class="admin-sidebar">
-                <div class="admin-sidebar-logo">
-                    <h2>AnimeUZ</h2>
-                    <span>Admin Panel v2.0</span>
-                </div>
-
-                <nav class="admin-nav">
-                    <button class="admin-nav-item active" data-tab="dashboard">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7" />
-                            <rect x="14" y="3" width="7" height="7" />
-                            <rect x="14" y="14" width="7" height="7" />
-                            <rect x="3" y="14" width="7" height="7" />
-                        </svg>
-                        Dashboard
-                    </button>
-                    <button class="admin-nav-item" data-tab="animelar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                            <polyline points="2 17 12 22 22 17" />
-                            <polyline points="2 12 12 17 22 12" />
-                        </svg>
-                        Animelar
-                    </button>
-                    <button class="admin-nav-item" data-tab="plus">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Yangi qo'shish
-                    </button>
-                </nav>
-
-                <div class="admin-sidebar-footer">
-                    <a href="/" class="admin-logout-btn" style="text-decoration: none;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" y1="12" x2="9" y2="12" />
-                        </svg>
-                        Saytga qaytish
-                    </a>
-                </div>
-            </aside>
-
-            <!-- Main Content -->
-            <main class="admin-main">
-                <!-- Dashboard Tab -->
-                <section id="tab-dashboard" class="admin-tab-content">
-                    <div class="admin-page-header">
-                        <h1 class="admin-page-title">Dashboard</h1>
-                        <p class="subtitle">Sayt statistikasi va tahlili</p>
-                    </div>
-
-                    <div class="admin-stats-grid">
-                        <div class="admin-stat-card">
-                            <div class="admin-stat-label">Jami Animelar</div>
-                            <div class="admin-stat-value" id="stat-total-anime">0</div>
-                        </div>
-                        <div class="admin-stat-card">
-                            <div class="admin-stat-label">Jami Ko'rishlar</div>
-                            <div class="admin-stat-value" id="stat-total-views">0</div>
-                        </div>
-                        <div class="admin-stat-card">
-                            <div class="admin-stat-label">Foydalanuvchilar (Taxminiy)</div>
-                            <div class="admin-stat-value" id="stat-total-users">0</div>
-                        </div>
-                        <div class="admin-stat-card">
-                            <div class="admin-stat-label">Aktiv Obunalar</div>
-                            <div class="admin-stat-value" id="stat-active-subs">0</div>
-                        </div>
-                    </div>
-
-                    <div class="admin-section-card">
-                        <h3 style="margin-bottom: 16px;">🔥 Eng ko'p ko'rilgan (Trendda)</h3>
-                        <div id="trends-list" class="trends-list">
-                            <!-- Trendlar shu yerga tushadi -->
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Animelar Ro'yxati Tab -->
-                <section id="tab-animelar" class="admin-tab-content" style="display: none;">
-                    <div class="admin-page-header">
-                        <h1 class="admin-page-title">Animelar Boshqaruvi</h1>
-                        <p class="subtitle">Barcha animelarni tahrirlash yoki o'chirish</p>
-                    </div>
-
-                    <div class="admin-table-container">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Nomi</th>
-                                    <th>Qism</th>
-                                    <th>Status</th>
-                                    <th>Ko'rilgan</th>
-                                    <th>Amallar</th>
-                                </tr>
-                            </thead>
-                            <tbody id="anime-list-table">
-                                <!-- Animelar shu yerga tushadi -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Yangi Qo'shish Tab -->
-                <section id="tab-plus" class="admin-tab-content" style="display: none;">
-                    <div class="admin-page-header">
-                        <h1 class="admin-page-title">Yangi Anime</h1>
-                        <p class="subtitle">Bazaga yangi anime qo'shish</p>
-                    </div>
-
-                    <div class="admin-login-card"
-                        style="max-width: 500px; margin: 0 auto; box-shadow: none; border: 1px solid var(--border);">
-                        <form id="anime-form">
-                            <div class="form-group">
-                                <label for="nomi">Anime nomi</label>
-                                <input type="text" id="nomi" class="admin-input" placeholder="Masalan: Naruto" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="qism">Qism raqami</label>
-                                <input type="number" id="qism" class="admin-input" placeholder="Masalan: 1" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="link">Video linki (Telegram/URL)</label>
-                                <input type="text" id="link" class="admin-input" placeholder="https://t.me/..."
-                                    required>
-                            </div>
-                            <button type="submit" class="admin-login-btn">Baza'ga yuklash</button>
-                        </form>
-                    </div>
-                </section>
-            </main>
+  <!-- ADMIN LOGIN OVERLAY -->
+  <div class="admin-login-overlay" id="adminLoginOverlay">
+    <div class="admin-login-card">
+      <div class="logo" style="justify-content: center; margin-bottom: 1.5rem;">
+        <span class="logo-symbol">ア</span>
+        <span class="logo-name">Admin<span class="logo-uz">UZ</span></span>
+      </div>
+      <h2>Yashirin panelga kirish</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Faqat boshqaruvchilar uchun</p>
+      
+      <form id="adminLoginForm">
+        <div class="input-group">
+          <label>Login (Username)</label>
+          <input type="text" id="adminUser" placeholder="admin" required />
         </div>
+        <div class="input-group">
+          <label>Parol</label>
+          <input type="password" id="adminPass" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">
+          Kirish
+        </button>
+      </form>
     </div>
-    <script type="module" src="/src/admin.js"></script>
-</body>
+  </div>
 
+  <div class="admin-layout" id="adminLayout" style="display: none;">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="logo">
+          <span class="logo-symbol">ア</span>
+          <span class="logo-name">Anime<span class="logo-uz">UZ</span></span>
+        </a>
+        <div class="admin-badge">Admin Panel</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-target="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          Boshqaruv Paneli
+        </button>
+        <button class="nav-item" data-target="add-anime">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Yangi Anime Qo'shish
+        </button>
+        <button class="nav-item" data-target="users">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Foydalanuvchilar
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="index.html" class="nav-item logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Chiqish
+        </a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      
+      <!-- HEADER -->
+      <header class="topbar">
+        <div class="topbar-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" placeholder="Qidirish..." />
+        </div>
+        <div class="topbar-profile">
+          <img src="https://ui-avatars.com/api/?name=Admin&background=8a2be2&color=fff" alt="Admin" />
+          <span>Asosiy Admin</span>
+        </div>
+      </header>
+
+      <!-- VIEWS -->
+      <div class="views-wrapper">
+        
+        <!-- DASHBOARD VIEW -->
+        <section id="dashboard" class="view-section active">
+          <div class="view-header">
+            <h2>Hozirgi Trendlar</h2>
+            <p>Saytda eng ko'p ko'rilayotgan animelar statistikasi</p>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-info">
+                <h3>Jami Foydalanuvchilar</h3>
+                <p>1,248</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🎬</div>
+              <div class="stat-info">
+                <h3>Bazadagi Animelar</h3>
+                <p>156</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🔥</div>
+              <div class="stat-info">
+                <h3>Bugungi Tashriflar</h3>
+                <p>8,942</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Yaratilgan/Rasmi</th>
+                  <th>Anime Nomi</th>
+                  <th>Reyting</th>
+                  <th>Holati</th>
+                  <th>Amallar</th>
+                </tr>
+              </thead>
+              <tbody id="trendingTableBody">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ADD ANIME VIEW -->
+        <section id="add-anime" class="view-section">
+          <div class="view-header">
+            <h2>Katalogga Yangi Anime Qo'shish</h2>
+            <p>Yangi qism yoki butunlay yangi anime bazaga yuklang</p>
+          </div>
+
+          <div class="form-card">
+            <form id="addAnimeForm">
+              <div class="form-row">
+                <div class="input-group">
+                  <label>Anime Nomi</label>
+                  <input type="text" id="animeTitle" placeholder="Masalan: Solo Leveling" required />
+                </div>
+                <div class="form-row-half">
+                  <div class="input-group">
+                    <label>Fasl (Season)</label>
+                    <input type="number" id="animeSeason" placeholder="1" min="1" required />
+                  </div>
+                  <div class="input-group">
+                    <label>Qism (Episode)</label>
+                    <input type="number" id="animeEpisode" placeholder="12" min="1" required />
+                  </div>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label>Video Manzili (URL yoki Embed kod)</label>
+                <input type="text" id="animeVideoUrl" placeholder="https://... yoki <iframe> kodini tashlang" required />
+              </div>
+
+              <div class="form-actions" style="margin-top: 2rem;">
+                <button type="submit" class="btn-primary" id="btnSubmitAdd">
+                  Bazaga Qo'shish
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- USERS VIEW -->
+        <section id="users" class="view-section">
+          <div class="view-header">
+            <h2>Foydalanuvchilar Ro'yxati</h2>
+            <p>Saytgai so'nggi ro'yxatdan o'tganlar</p>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Foydalanuvchi</th>
+                  <th>Email</th>
+                  <th>Ro'yxatdan O'tgan Vaqti</th>
+                  <th>Holati</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./src/admin.js"></script>
+</body>
 </html>

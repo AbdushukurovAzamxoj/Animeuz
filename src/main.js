@@ -1,201 +1,518 @@
-import { getAnimelar, updateAnime } from "./firebase.js";
+import { supabase, getAnimes, getTrendingAnimes } from './db.js';
 
-// Placeholder image
-const PLACEHOLDER_POSTER = "https://firebasestorage.googleapis.com/v0/b/animeuz-base.appspot.com/o/assets%2Fanimeuz_placeholder.png?alt=media";
+// ===== GLOBAL STATE =====
+let ANIME_DATA = [];
+let heroData = [];
 
-// ===== DEBUG ON-SCREEN =====
-function debugLog(msg, color = "white") {
-  console.log("DEBUG:", msg);
-  const debugDiv = document.getElementById('debug-console');
-  if (debugDiv) {
-    debugDiv.innerHTML += `<div style="color:${color}; margin-bottom:2px;">> ${msg}</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
+// ===== DOM ELEMENTS =====
+const navbar = document.getElementById('navbar');
+const burger = document.getElementById('burger');
+const mobileMenu = document.getElementById('mobileMenu');
+const searchToggle = document.getElementById('searchToggle');
+const searchWrap = document.getElementById('searchWrap');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+const toast = document.getElementById('toast');
+const btnLogin = document.getElementById('btnLogin');
+
+// User Menu
+const userMenu = document.getElementById('userMenu');
+const userAvatarBtn = document.getElementById('userAvatarBtn');
+const userDropdown = document.getElementById('userDropdown');
+const userEmailDisplay = document.getElementById('userEmailDisplay');
+const adminLink = document.getElementById('adminLink');
+const btnLogout = document.getElementById('btnLogout');
+
+// Sections
+const heroSlider = document.getElementById('heroSlider');
+const heroTitle = document.getElementById('heroTitle');
+const heroDesc = document.getElementById('heroDesc');
+const heroMeta = document.getElementById('heroMeta');
+const heroDots = document.getElementById('heroDots');
+const btnWatch = document.getElementById('btnWatch');
+const btnAdd = document.getElementById('btnAdd');
+
+const trendingTrack = document.getElementById('trendingTrack');
+const animeGrid = document.getElementById('animeGrid');
+const topList = document.getElementById('topList');
+const noResults = document.getElementById('noResults');
+
+// Modal
+const modalBackdrop = document.getElementById('modalBackdrop');
+const modalInner = document.getElementById('modalInner');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+const body = document.body;
+
+// ===== STATE =====
+let currentSlide = 0;
+let slideInterval;
+
+// ===== INIT =====
+async function init() {
+  await checkAuth();
+  
+  // Ma'lumotlarni bazadan yuklash
+  try {
+    const fetchedAnimes = await getAnimes();
+    if (fetchedAnimes && fetchedAnimes.length > 0) {
+      ANIME_DATA = fetchedAnimes;
+      // Hero slaydlar uchun animelarni ajratish (agar bayroq bo'lmasa, dastlabki 3 tasini olamiz)
+      heroData = ANIME_DATA.filter(a => a.hero) || ANIME_DATA.slice(0, 3);
+      if (heroData.length === 0) heroData = ANIME_DATA.slice(0, 3);
+    }
+  } catch (err) {
+    console.error("Ma'lumotlarni yuklashda xatolik:", err);
+  }
+
+  if (heroData.length > 0) {
+    renderHeroSlides();
+    updateHeroContent();
+  }
+  
+  renderTrending();
+  renderCatalog(ANIME_DATA);
+  renderTopRated();
+  startSlider();
+  setupEventListeners();
+}
+
+// ===== AUTH =====
+async function checkAuth() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    btnLogin.classList.add('hidden');
+    userMenu.classList.remove('hidden');
+    userEmailDisplay.textContent = user.email;
+    
+    // Admin tekshiruvi (oddiy usul, xohlasangiz baza orqali ham bo'ladi)
+    if (user.email === 'admin@anime.uz' || user.email.includes('admin')) {
+      adminLink.classList.remove('hidden');
+    }
+  } else {
+    btnLogin.classList.remove('hidden');
+    userMenu.classList.add('hidden');
   }
 }
 
-// ===== STATE MANAGEMENT =====
-const State = {
-  currentTab: 'popular',
-  previousTab: 'popular',
-  currentAnime: null,
-  getSaved() {
-    try { return JSON.parse(localStorage.getItem('animeuz_saved') || '[]'); }
-    catch { return []; }
-  },
-  toggleSaved(animeId) {
-    const saved = this.getSaved();
-    const idx = saved.indexOf(animeId);
-    if (idx > -1) saved.splice(idx, 1);
-    else saved.push(animeId);
-    localStorage.setItem('animeuz_saved', JSON.stringify(saved));
-    return saved.includes(animeId);
-  },
-  isSaved(animeId) {
-    return this.getSaved().includes(animeId);
-  },
-};
-
-// ===== ROUTER =====
-let pageContent;
-let navBtns;
-
-async function initApp() {
-  debugLog("Sayt ishga tushmoqda...");
-
-  pageContent = document.getElementById('page-content');
-  navBtns = document.querySelectorAll('.nav-btn');
-
-  if (!pageContent) {
-    debugLog("Elementlar qidirilmoqda...", "yellow");
-    setTimeout(initApp, 500);
-    return;
-  }
-
-  window.navigate = async function (tab, animeId = null) {
-    debugLog(`Navigatsiya: ${tab}`);
-    try {
-      if (tab !== 'detail') State.previousTab = tab;
-      State.currentTab = tab;
-      State.currentAnime = animeId;
-
-      if (navBtns) {
-        navBtns.forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.tab === tab);
-        });
-      }
-
-      const bottomNav = document.getElementById('bottom-nav');
-      if (bottomNav) bottomNav.style.display = animeId ? 'none' : 'flex';
-
-      pageContent.innerHTML = `<div class="search-empty"><p>Yuklanmoqda...</p></div>`;
-
-      switch (tab) {
-        case 'popular': await renderPopular(); break;
-        case 'search': await renderSearch(); break;
-        case 'saved': await renderSaved(); break;
-        case 'profile': await renderProfile(); break;
-        case 'detail': await renderDetail(animeId); break;
-      }
-    } catch (error) {
-      debugLog("Nav xatosi: " + error.message, "red");
-      pageContent.innerHTML = `<div class="search-empty"><p style="color:red">Xatolik: ${error.message}</p></div>`;
+// ===== EVENT LISTENERS =====
+function setupEventListeners() {
+  // Scroll
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) {
+      navbar.classList.add('scrolled');
+    } else {
+      navbar.classList.add('scrolled'); // keep dark glass
     }
-  }
+    
+    // Active Links
+    let current = '';
+    const sections = document.querySelectorAll('section');
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      if (window.scrollY >= sectionTop - 150) {
+        current = section.getAttribute('id');
+      }
+    });
 
-  if (navBtns) {
-    navBtns.forEach(btn => {
-      btn.addEventListener('click', () => window.navigate(btn.dataset.tab));
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.classList.remove('active');
+      if (link.dataset.section === current) {
+        link.classList.add('active');
+      }
+    });
+  });
+
+  // Mobile Menu
+  burger.addEventListener('click', () => {
+    burger.classList.toggle('active');
+    mobileMenu.classList.toggle('active');
+    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+  });
+
+  document.querySelectorAll('.mob-link').forEach(link => {
+    link.addEventListener('click', () => {
+      burger.classList.remove('active');
+      mobileMenu.classList.remove('active');
+      body.style.overflow = '';
+    });
+  });
+
+  // Search Toggle
+  searchToggle.addEventListener('click', () => {
+    searchWrap.classList.toggle('active');
+    if (searchWrap.classList.contains('active')) {
+      searchInput.focus();
+    }
+  });
+
+  // Click outside to close search
+  document.addEventListener('click', (e) => {
+    if (!searchWrap.contains(e.target)) {
+      searchWrap.classList.remove('active');
+    }
+  });
+
+  // Search Input
+  searchInput.addEventListener('input', (e) => {
+    const val = e.target.value.toLowerCase();
+    if (!val) {
+      searchResults.innerHTML = '';
+      return;
+    }
+    
+    const results = ANIME_DATA.filter(a => a.title.toLowerCase().includes(val));
+    if (results.length === 0) {
+      searchResults.innerHTML = '<div style="padding: 1rem; color: #a0a0b0;">Hech narsa topilmadi...</div>';
+    } else {
+      searchResults.innerHTML = results.slice(0, 5).map(anime => `
+        <div class="search-item" onclick="openModal('${anime.id}')">
+          <img src="${anime.img}" alt="${anime.title}">
+          <div class="search-item-info">
+            <h4>${anime.title}</h4>
+            <span>★ ${anime.rating}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  });
+
+  // Genre Filters
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const genre = chip.dataset.genre;
+      
+      if (genre === 'all') {
+        renderCatalog(ANIME_DATA);
+      } else {
+        const filtered = ANIME_DATA.filter(a => a.genres.includes(genre));
+        renderCatalog(filtered);
+      }
+    });
+  });
+
+  // Hero Buttons
+  btnWatch.addEventListener('click', () => {
+    openModal(heroData[currentSlide].id);
+  });
+
+  btnAdd.addEventListener('click', () => {
+    showToast("Ro'yxatga qo'shildi!");
+  });
+
+  btnLogin.addEventListener('click', () => {
+    window.location.href = 'login.html';
+  });
+
+  // User Profile
+  if (userAvatarBtn) {
+    userAvatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userDropdown.classList.toggle('active');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!userMenu.contains(e.target)) {
+        userDropdown.classList.remove('active');
+      }
     });
   }
 
-  await window.navigate('popular');
-  debugLog("Sayt tayyor ✅", "lime");
-}
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+    });
+  }
 
-// INITIALIZE
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
-} else {
-  initApp();
-}
+  // Hero Navigation
+  document.getElementById('slidePrev').addEventListener('click', () => {
+    currentSlide = (currentSlide - 1 + heroData.length) % heroData.length;
+    updateHeroContent();
+    resetSlider();
+  });
 
-// ===== PAGES =====
-async function renderPopular() {
-  debugLog("Ma'lumotlar olinmoqda...");
+  document.getElementById('slideNext').addEventListener('click', () => {
+    currentSlide = (currentSlide + 1) % heroData.length;
+    updateHeroContent();
+    resetSlider();
+  });
 
-  const TIMEOUT_MS = 15000;
+  // Modal Close
+  modalCloseBtn.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => {
+    if (e.target === modalBackdrop) closeModal();
+  });
 
-  try {
-    const firebasePromise = getAnimelar();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Baza juda sekin javob berdi (Time Out)")), TIMEOUT_MS)
-    );
-
-    const animelar = await Promise.race([firebasePromise, timeoutPromise]);
-    debugLog(`Kelgan ma'lumotlar: ${animelar.length} ta`);
-
-    if (animelar.length === 0) {
-      pageContent.innerHTML = `
-        <div class="search-empty">
-          <p>Hozircha animelar yo'q.</p>
-          <a href="/admin.html" style="color:var(--accent); text-decoration:none; margin-top:10px; display:block;">Admin panelga o'tish</a>
-        </div>
-      `;
-      return;
-    }
-
-    const featured = animelar[0];
-    pageContent.innerHTML = `
-      <div class="featured-card" onclick="navigate('detail', '${featured.id}')">
-        <img src="${featured.rasm || PLACEHOLDER_POSTER}" alt="${featured.nomi}" class="featured-img" />
-        <div class="featured-overlay">
-          <div class="featured-title">${featured.nomi}</div>
-          <div class="featured-subtitle">Eng so'nggi epizodlar</div>
-        </div>
-      </div>
-      <div class="section-container">
-        <div class="section-header"><h2 class="section-title">Yangi qo'shilganlar</h2></div>
-        <div class="anime-grid">
-          ${animelar.map(a => animeCard(a)).join('')}
-        </div>
-      </div>
-    `;
-  } catch (error) {
-    debugLog("MUAMMO: " + error.message, "orange");
-    pageContent.innerHTML = `
-      <div class="search-empty">
-        <p style="color:orange">Baza ulanishida qiyinchilik: ${error.message}</p>
-        <button onclick="window.location.reload()" style="background:var(--accent); border:none; padding:8px 16px; border-radius:4px; color:white; margin-top:10px; cursor:pointer;">Qayta urinish</button>
-      </div>
-    `;
+  // Video Modal Close
+  const videoCloseBtn = document.getElementById('videoCloseBtn');
+  const videoModal = document.getElementById('videoModal');
+  if (videoCloseBtn) {
+    videoCloseBtn.addEventListener('click', closeVideoPlayer);
+  }
+  if (videoModal) {
+    videoModal.addEventListener('click', (e) => {
+      if (e.target === videoModal) closeVideoPlayer();
+    });
   }
 }
 
-function animeCard(anime) {
+// ===== HERO SLIDER =====
+function renderHeroSlides() {
+  heroSlider.innerHTML = heroData.map((data, index) => `
+    <div class="hero-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${data.banner}')" id="slide-${index}"></div>
+  `).join('');
+
+  heroDots.innerHTML = heroData.map((_, index) => `
+    <div class="dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>
+  `).join('');
+
+  document.querySelectorAll('.dot').forEach(dot => {
+    dot.addEventListener('click', (e) => {
+      currentSlide = parseInt(e.target.dataset.index);
+      updateHeroContent();
+      resetSlider();
+    });
+  });
+}
+
+function updateHeroContent() {
+  // Update BG
+  document.querySelectorAll('.hero-slide').forEach((slide, idx) => {
+    slide.classList.toggle('active', idx === currentSlide);
+  });
+  
+  // Update Dots
+  document.querySelectorAll('.dot').forEach((dot, idx) => {
+    dot.classList.toggle('active', idx === currentSlide);
+  });
+
+  // Update Content
+  const anime = heroData[currentSlide];
+  
+  const contentEl = document.getElementById('heroContent');
+  contentEl.style.animation = 'none';
+  contentEl.offsetHeight; // trigger reflow
+  contentEl.style.animation = null;
+
+  heroTitle.textContent = anime.title;
+  heroDesc.textContent = anime.desc;
+  heroMeta.innerHTML = `
+    <div class="meta-item rating">★ ${anime.rating || 0}</div>
+    <div class="meta-item quality">${anime.quality || 'HD'}</div>
+    <div class="meta-item episodes">Ep: ${anime.episode || 1}</div>
+  `;
+}
+
+function startSlider() {
+  slideInterval = setInterval(() => {
+    currentSlide = (currentSlide + 1) % heroData.length;
+    updateHeroContent();
+  }, 6000);
+}
+
+function resetSlider() {
+  clearInterval(slideInterval);
+  startSlider();
+}
+
+// ===== RENDERERS =====
+function createAnimeCard(anime) {
   return `
-    <div class="anime-card ${anime.premium ? 'premium-card' : ''}" onclick="navigate('detail', '${anime.id}')">
-      <div class="anime-card-poster">
-        <img src="${anime.rasm || PLACEHOLDER_POSTER}" alt="${anime.nomi}" loading="lazy" />
-        ${anime.premium ? `<div class="premium-badge-top">Premium</div>` : ''}
-        ${anime.qism ? `<div class="anime-card-ep-badge">${anime.qism}-qism</div>` : ''}
+    <div class="anime-card" onclick="openModal('${anime.id}')">
+      <div class="card-img-wrap">
+        <img src="${anime.poster_url || anime.img}" alt="${anime.title}" loading="lazy" />
+        <div class="card-overlay">
+          <div class="card-top">
+            <span class="episodes">${anime.episode || 1} Qism</span>
+            <span class="rating">★ ${anime.rating || 0}</span>
+          </div>
+          <div class="play-btn-overlay">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div class="card-bottom">
+            <h3 class="card-title">${anime.title}</h3>
+            <div class="card-genres">${anime.genres ? anime.genres.join(' • ') : 'Anime'}</div>
+          </div>
+        </div>
       </div>
-      <div class="anime-card-title">${anime.nomi}</div>
     </div>
   `;
 }
 
-window.recordView = async function (id, currentViews) {
-  await updateAnime(id, { kurishlar: (currentViews || 0) + 1 });
+function renderTrending() {
+  const trending = ANIME_DATA.filter(a => a.trending);
+  trendingTrack.innerHTML = trending.map(createAnimeCard).join('');
 }
 
-window.goBack = function () {
-  window.navigate(State.previousTab);
-};
+function renderCatalog(data) {
+  if (data.length === 0) {
+    animeGrid.innerHTML = '';
+    noResults.classList.remove('hidden');
+  } else {
+    noResults.classList.add('hidden');
+    animeGrid.innerHTML = data.map(createAnimeCard).join('');
+  }
+}
 
-// Simplified versions of other pages to save space and avoid errors
-async function renderSearch() {
-  const animelar = await getAnimelar();
-  pageContent.innerHTML = `<div class="search-container"><div class="search-bar"><input type="text" placeholder="Qidirish..." oninput="handleSearch(this.value)" /></div><div id="search-results" class="anime-grid">${animelar.map(a => animeCard(a)).join('')}</div></div>`;
+function renderTopRated() {
+  const sorted = [...ANIME_DATA].sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating)).slice(0, 6);
+  topList.innerHTML = sorted.map((anime, idx) => `
+    <div class="top-item" onclick="openModal(${anime.id})">
+      <div class="top-rank">${idx + 1}</div>
+      <img src="${anime.img}" alt="${anime.title}" class="top-img" loading="lazy" />
+      <div class="top-info">
+        <h4>${anime.title}</h4>
+        <p>${anime.genres.join(', ')}</p>
+        <div class="top-stats">
+          <span class="rating">★ ${anime.rating}</span>
+          <span>${anime.episodes} Qism</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
-async function renderSaved() {
-  const savedIds = State.getSaved();
-  const animelar = await getAnimelar();
-  const saved = animelar.filter(a => savedIds.includes(a.id));
-  pageContent.innerHTML = `<div class="section-container"><h2 class="section-title">Saqlanganlar</h2><div class="anime-grid">${saved.map(a => animeCard(a)).join('')}</div></div>`;
-}
-async function renderProfile() {
-  pageContent.innerHTML = `<div class="profile-container"><div class="profile-header">Profil</div><div class="profile-menu"><div class="profile-menu-item" onclick="window.location.href='/admin.html'">Admin Panel</div></div></div>`;
-}
-async function renderDetail(animeId) {
-  const animelar = await getAnimelar();
-  const anime = animelar.find(a => a.id === animeId);
+
+// ===== MODAL =====
+window.openModal = function(id) {
+  const anime = ANIME_DATA.find(a => a.id === id);
   if (!anime) return;
-  const isSaved = State.isSaved(animeId);
-  pageContent.innerHTML = `<div class="detail-page"><button class="detail-back" onclick="window.goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;"><polyline points="15 18 9 12 15 6"/></svg></button><div class="detail-poster"><img src="${anime.rasm || PLACEHOLDER_POSTER}" /></div><div class="detail-content"><div class="detail-title">${anime.nomi}</div><div class="detail-actions"><a href="${anime.url}" target="_blank" onclick="recordView('${anime.id}', ${anime.kurishlar || 0})" class="detail-action-btn primary">Ko'rish (Telegram)</a><button class="detail-action-btn ${isSaved ? 'saved' : 'secondary'}" id="save-btn">${isSaved ? 'Saqlangan' : 'Saqlash'}</button></div></div></div>`;
+
+  const bgImage = anime.poster_url || anime.banner || anime.img;
+
+  modalInner.innerHTML = `
+    <div class="modal-banner">
+      <img src="${bgImage}" alt="${anime.title}">
+    </div>
+    <div class="modal-content">
+      <img src="${anime.poster_url || anime.img}" alt="${anime.title}" class="modal-poster">
+      <div class="modal-info">
+        <h2>${anime.title}</h2>
+        <div class="modal-meta">
+          <span>⭐️ ${anime.rating || 0} Reyting</span>
+          <span>📺 ${anime.episode || 1} Qism</span>
+          <span>📀 ${anime.quality || 'HD'}</span>
+          <span>🎭 ${anime.genres ? anime.genres.join(', ') : 'Anime'}</span>
+        </div>
+        <p class="modal-desc">${anime.desc || 'Tavsif mavjud emas.'}</p>
+        <div class="modal-actions">
+          <button class="btn-watch" onclick="playAnime('${anime.id}')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Tomosha qilish
+          </button>
+          <button class="btn-add" onclick="showToast('Ro\\'yxatga qo\\'shildi')">
+            <span>+</span> Saqlash
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modalBackdrop.classList.add('active');
+  body.style.overflow = 'hidden';
+  searchWrap.classList.remove('active'); // Close search if open
 }
-window.handleSearch = async function (query) {
-  const animelar = await getAnimelar();
-  const results = animelar.filter(a => a.nomi.toLowerCase().includes(query.toLowerCase()));
-  const container = document.getElementById('search-results');
-  if (container) container.innerHTML = results.map(a => animeCard(a)).join('');
+
+function closeModal() {
+  modalBackdrop.classList.remove('active');
+  body.style.overflow = '';
 }
+
+window.playAnime = function(id) {
+  const anime = ANIME_DATA.find(a => a.id === id);
+  if (!anime || !anime.video_url) {
+    showToast("Video manzili topilmadi!");
+    return;
+  }
+
+  const videoModal = document.getElementById('videoModal');
+  const videoContainer = document.getElementById('videoContainer');
+  
+  // Close details modal
+  closeModal();
+
+  let playerHtml = '';
+  let url = anime.video_url.trim();
+
+  // Doodstream ssilkasini avto-to'g'rilash (barcha domenlar uchun: dood.to, dood.so, d0000d.com va h.k.)
+  if (url.includes('/d/') && (url.includes('dood') || url.includes('d0000d') || url.includes('ds2play'))) {
+    url = url.replace('/d/', '/e/');
+  }
+
+  // Agar ssilka iframe ko'rinishida bo'lsa yoki mashhur embed provayderlar bo'lsa
+  // Yoki ssilka .mp4/.mkv/.m3u8 bilan tugamasa, uni embed deb hisoblaymiz (ehtimoliy xavfsizroq yo'l)
+  const embedKeywords = ['<iframe', 'dood', 'd0000d', 'ds2play', 'youtube.com/embed', 'uqload', 'streamwish', 'voe', 'vidoza', 'upstream', 'filemoon', 'embed'];
+  const isDirectFile = url.toLowerCase().match(/\.(mp4|mkv|mov|webm|avi|m3u8)/);
+  const isEmbed = embedKeywords.some(key => url.toLowerCase().includes(key)) || !isDirectFile;
+
+  if (isEmbed) {
+    let src = url;
+    if (url.includes('<iframe')) {
+      const match = url.match(/src="([^"]+)"/) || url.match(/src='([^']+)'/);
+      src = match ? match[1] : url;
+    }
+    // Embed player uchun "sandbox" va "allow" atributlarini qo'shamiz (xavfsizlik va autoplay uchun)
+    playerHtml = `<iframe src="${src}" allowfullscreen="true" scrolling="no" frameborder="0" allow="autoplay; encrypted-media"></iframe>`;
+  } else {
+    // Haqiqiy to'g'ridan-to'g'ri video fayl bo'lsa
+    playerHtml = `
+      <video controls autoplay playsinline style="width: 100%; height: 100%; background: #000;">
+        <source src="${url}" type="video/mp4">
+        Sizning brauzeringiz videoni qo'llab-quvvatlamaydi.
+      </video>
+    `;
+  }
+
+  videoContainer.innerHTML = playerHtml;
+  videoModal.classList.add('active');
+  body.style.overflow = 'hidden';
+}
+
+window.closeVideoPlayer = function() {
+  const videoModal = document.getElementById('videoModal');
+  const videoContainer = document.getElementById('videoContainer');
+  videoModal.classList.remove('active');
+  videoContainer.innerHTML = ''; // Stop video playback
+  body.style.overflow = '';
+}
+
+// ===== UTILS =====
+window.showToast = function(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
+}
+
+// Particle basic effect
+function createParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.style.position = 'absolute';
+    p.style.width = Math.random() * 5 + 'px';
+    p.style.height = p.style.width;
+    p.style.background = Math.random() > 0.5 ? 'var(--primary)' : 'var(--accent)';
+    p.style.borderRadius = '50%';
+    p.style.opacity = Math.random() * 0.5;
+    p.style.top = Math.random() * 100 + '%';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.boxShadow = `0 0 10px ${p.style.background}`;
+    p.style.animation = `float ${10 + Math.random() * 20}s infinite linear`;
+    container.appendChild(p);
+  }
+}
+
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(${Math.random() * 200 - 100}px, -1000px) rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+
+init();
+createParticles();

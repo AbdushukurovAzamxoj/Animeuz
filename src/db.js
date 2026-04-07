@@ -1,151 +1,171 @@
-/**
- * VideoDB - A simple IndexedDB wrapper to store anime video files locally.
- */
-export const VideoDB = {
-    dbName: 'AnimeUZ_Videos',
-    dbVersion: 2,
-    storeName: 'videos',
-    posterStore: 'posters',
+import { createClient } from '@supabase/supabase-js';
 
-    _getDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, this.dbVersion);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result);
-            request.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName);
-                }
-                if (!db.objectStoreNames.contains(this.posterStore)) {
-                    db.createObjectStore(this.posterStore);
-                }
-            };
+// =============================================
+// TODO: Quyidagi 2 ta qiymatni o'zingizning 
+// Supabase hisobingizdan olingan kalitlar bilan almashtiring!
+//
+// 1. https://supabase.com ga kiring
+// 2. "New Project" bosing → nom bering (masalan: animeuz)
+// 3. Settings → API bo'limiga o'ting
+// 4. "Project URL" va "anon public" kalitini nusxalang
+// =============================================
 
-        });
-    },
+const SUPABASE_URL = 'https://dhrzrredotvbyjhjigxa.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_la_i7GDeYDPB-DLy3KmjTw_1dvOALqs';
 
-    /**
-     * Store a video file (Blob) in the database.
-     * @param {string|number} animeId 
-     * @param {number} epNum 
-     * @param {Blob} blob 
-     */
-    async saveVideo(animeId, epNum, blob) {
-        const db = await this._getDB();
-        const key = `${animeId}_${epNum}`;
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.put(blob, key);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(true);
-        });
-    },
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    /**
-     * Retrieve a video file (Blob) from the database.
-     * @param {string|number} animeId 
-     * @param {number} epNum 
-     */
-    async getVideo(animeId, epNum) {
-        const db = await this._getDB();
-        const key = `${animeId}_${epNum}`;
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.get(key);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result);
-        });
-    },
+// =============================================
+// DATABASE HELPER FUNCTIONS
+// =============================================
 
-    /**
-     * Delete a video file from the database.
-     * @param {string|number} animeId 
-     * @param {number} epNum 
-     */
-    async deleteVideo(animeId, epNum) {
-        const db = await this._getDB();
-        const key = `${animeId}_${epNum}`;
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.delete(key);
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(true);
-        });
-    },
+// ----- ANIMELAR -----
 
-    /**
-     * Delete all videos associated with an anime.
-     * @param {string|number} animeId 
-     */
-    async deleteAnimeVideos(animeId) {
-        const db = await this._getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.openCursor();
-            request.onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) {
-                    if (cursor.key.startsWith(`${animeId}_`)) {
-                        cursor.delete();
-                    }
-                    cursor.continue();
-                } else {
-                    resolve(true);
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
-    },
+// Barcha animelarni olish
+export async function getAnimes() {
+  const { data, error } = await supabase
+    .from('animes')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Animelarni olishda xatolik:', error);
+    return [];
+  }
+  return data || [];
+}
 
-    /**
-     * Store a poster file (Blob) in the database.
-     * @param {string|number} animeId 
-     * @param {Blob} blob 
-     */
-    async savePoster(animeId, blob) {
-        const db = await this._getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.posterStore], 'readwrite');
-            const store = transaction.objectStore(this.posterStore);
-            const request = store.put(blob, animeId.toString());
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(true);
-        });
-    },
+// Yangi anime qo'shish
+export async function addAnime({ title, season, episode, video_url, poster_url, genres, rating, description }) {
+  const { data, error } = await supabase
+    .from('animes')
+    .insert([{ title, season, episode, video_url, poster_url, genres, rating, description }])
+    .select();
+  
+  if (error) {
+    console.error('Anime qo\'shishda xatolik:', error);
+    return null;
+  }
+  return data?.[0];
+}
 
-    /**
-     * Retrieve a poster file (Blob) from the database.
-     * @param {string|number} animeId 
-     */
-    async getPoster(animeId) {
-        const db = await this._getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.posterStore], 'readonly');
-            const store = transaction.objectStore(this.posterStore);
-            const request = store.get(animeId.toString());
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result);
-        });
-    },
+// Animeni o'chirish
+export async function deleteAnime(id) {
+  const { error } = await supabase
+    .from('animes')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Anime o\'chirishda xatolik:', error);
+    return false;
+  }
+  return true;
+}
 
-    /**
-     * Delete a poster file from the database.
-     * @param {string|number} animeId 
-     */
-    async deletePoster(animeId) {
-        const db = await this._getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.posterStore], 'readwrite');
-            const store = transaction.objectStore(this.posterStore);
-            const request = store.delete(animeId.toString());
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(true);
-        });
+// Trenddagi animelarni olish (rating bo'yicha tartiblangan)
+export async function getTrendingAnimes() {
+  const { data, error } = await supabase
+    .from('animes')
+    .select('*')
+    .order('rating', { ascending: false })
+    .limit(10);
+  
+  if (error) {
+    console.error('Trendlarni olishda xatolik:', error);
+    return [];
+  }
+  return data || [];
+}
+
+// ----- FOYDALANUVCHILAR -----
+
+// Barcha foydalanuvchilarni olish
+export async function getUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Foydalanuvchilarni olishda xatolik:', error);
+    return [];
+  }
+  return data || [];
+}
+
+// ----- VIDEO YUKLASH (STORAGE) -----
+
+// Videoni Supabase Storage ga yuklash
+export async function uploadVideo(file, fileName) {
+  const { data, error } = await supabase
+    .storage
+    .from('videos')  // Storage bucket nomi
+    .upload(`animes/${fileName}`, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) {
+    console.error('Video yuklashda xatolik:', error);
+    return null;
+  }
+
+  // Public URL qaytarish
+  const { data: urlData } = supabase
+    .storage
+    .from('videos')
+    .getPublicUrl(`animes/${fileName}`);
+
+  return urlData?.publicUrl || null;
+}
+
+// ----- AUTH -----
+
+// Google orqali kirish
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + '/index.html'
     }
-};
+  });
+  if (error) {
+    console.error('Google login xatolik:', error);
+    return null;
+  }
+  return data;
+}
 
+// Email orqali Magic Link yuborish
+export async function signInWithEmail(email) {
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email: email,
+    options: {
+      emailRedirectTo: window.location.origin + '/index.html'
+    }
+  });
+  if (error) {
+    console.error('Email login xatolik:', error);
+    return null;
+  }
+  return data;
+}
+
+// Hozirgi foydalanuvchini olish
+export async function getCurrentUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+// Chiqish
+export async function signOutUser() {
+  await supabase.auth.signOut();
+}
+
+// Auth o'zgarishlarini kuzatish
+export function onAuthChange(callback) {
+  return supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
+  });
+}

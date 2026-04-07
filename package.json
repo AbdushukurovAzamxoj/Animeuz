@@ -10,6 +10,7 @@
     "bot": "node telegram_bot.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
     "firebase": "^10.0.0",
     "node-telegram-bot-api": "^0.64.0"
   },
