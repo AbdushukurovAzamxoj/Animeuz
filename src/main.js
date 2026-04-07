@@ -201,22 +201,58 @@ function setupEventListeners() {
     showToast("Ro'yxatga qo'shildi!");
   });
 
-  // Discovery Button
+  // Discovery Button (Smart Recommendations)
   const btnDiscovery = document.getElementById('btnDiscovery');
+  const recModal = document.getElementById('recModal');
+  const recGrid = document.getElementById('recGrid');
+  const recCloseBtn = document.getElementById('recCloseBtn');
+
   if (btnDiscovery) {
     btnDiscovery.addEventListener('click', () => {
       if (ANIME_DATA.length === 0) {
         showToast("Hozircha animelar yo'q!");
         return;
       }
-      const randomIdx = Math.floor(Math.random() * ANIME_DATA.length);
-      const randomAnime = ANIME_DATA[randomIdx];
-      showToast("Siz uchun ajoyib anime topdik! ✨");
-      setTimeout(() => {
-        openModal(randomAnime.id);
-      }, 500);
+
+      const recs = getSmartRecommendations();
+      
+      // Tavsiyalarni generatsiya qilish
+      recGrid.innerHTML = recs.map(anime => `
+        <div class="rec-card" onclick="openRecModal('${anime.id}')">
+          <div class="rec-card-img">
+            <img src="${anime.img}" alt="${anime.title}">
+          </div>
+          <div class="rec-card-info">
+            <h4>${anime.title}</h4>
+            <span>★ ${anime.rating}</span>
+          </div>
+        </div>
+      `).join('');
+
+      recModal.classList.add('active');
+      body.style.overflow = 'hidden';
     });
   }
+
+  // Helper function to open modal from recommendation card
+  window.openRecModal = function(id) {
+    recModal.classList.remove('active');
+    openModal(id);
+  };
+
+  if (recCloseBtn) {
+    recCloseBtn.addEventListener('click', () => {
+      recModal.classList.remove('active');
+      body.style.overflow = '';
+    });
+  }
+
+  recModal.addEventListener('click', (e) => {
+    if (e.target === recModal) {
+      recModal.classList.remove('active');
+      body.style.overflow = '';
+    }
+  });
 
   btnLogin.addEventListener('click', () => {
     window.location.href = 'login.html';
@@ -230,7 +266,7 @@ function setupEventListeners() {
     });
 
     document.addEventListener('click', (e) => {
-      if (!userMenu.contains(e.target)) {
+      if (userMenu && !userMenu.contains(e.target)) {
         userDropdown.classList.remove('active');
       }
     });
@@ -436,12 +472,46 @@ function closeModal() {
   body.style.overflow = '';
 }
 
+// ===== USER INTEREST TRACKING =====
+function trackGenreInterests(genres) {
+  if (!genres || !Array.isArray(genres)) return;
+  
+  let interests = JSON.parse(localStorage.getItem('anime_interests') || '{}');
+  genres.forEach(g => {
+    interests[g] = (interests[g] || 0) + 1;
+  });
+  localStorage.setItem('anime_interests', JSON.stringify(interests));
+}
+
+function getSmartRecommendations() {
+  const interests = JSON.parse(localStorage.getItem('anime_interests') || '{}');
+  
+  // 1. Eng ko'p qiziqish bildirilgan janrni topish
+  let favoriteGenre = 'Action'; // Default
+  let maxCount = 0;
+  for (const [genre, count] of Object.entries(interests)) {
+    if (count > maxCount) {
+      maxCount = count;
+      favoriteGenre = genre;
+    }
+  }
+
+  // 2. Shu janrdagi eng yaxshi 3 ta animeni topish (hali ko'rilmagan bo'sa yanayam yaxshi)
+  return ANIME_DATA
+    .filter(a => a.genres.includes(favoriteGenre))
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 3);
+}
+
 window.playAnime = function(id) {
   const anime = ANIME_DATA.find(a => a.id === id);
   if (!anime || !anime.video_url) {
     showToast("Video manzili topilmadi!");
     return;
   }
+
+  // Janrni kuzatuvga olamiz
+  trackGenreInterests(anime.genres);
 
   const videoModal = document.getElementById('videoModal');
   const videoContainer = document.getElementById('videoContainer');

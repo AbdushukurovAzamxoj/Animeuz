@@ -1510,3 +1510,91 @@ img {
 @media (max-width: 768px) {
   .video-modal-box { width: 95%; }
 }
+
+/* ===== RECOMMENDATION MODAL ===== */
+#recModal .rec-modal-box {
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  width: 95%;
+  max-width: 1100px;
+  padding: 3rem;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: auto;
+}
+
+.rec-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.rec-header h2 {
+  font-size: 2.2rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.rec-header p {
+  color: var(--text-muted);
+}
+
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.rec-card {
+  background: var(--surface-light);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  transition: var(--transition);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.rec-card:hover {
+  transform: translateY(-10px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 30px rgba(138, 43, 226, 0.3);
+}
+
+.rec-card-img {
+  height: 380px;
+  overflow: hidden;
+}
+
+.rec-card-img img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.rec-card:hover .rec-card-img img {
+  transform: scale(1.1);
+}
+
+.rec-card-info {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.rec-card-info h4 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.rec-card-info span {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  #recModal .rec-modal-box { padding: 1.5rem; width: 95%; }
+  .rec-grid { grid-template-columns: 1fr; }
+  .video-modal-box { width: 95%; }
+}

@@ -278,7 +278,23 @@
   </div>
 
   <!-- ===== TOAST ===== -->
-  <div class="toast" id="toast"></div>
+  <!-- ===== RECOMMENDATIONS MODAL ===== -->
+  <div class="video-modal-backdrop" id="recModal">
+    <div class="rec-modal-box">
+      <button class="modal-close-btn" id="recCloseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <div class="rec-header">
+        <h2>Sizga tavsiya qilamiz! ✨</h2>
+        <p>Qiziqishlaringizdan kelib chiqib, ushbu 3 ta animeni ko'rishingizni maslahat beramiz.</p>
+      </div>
+      <div class="rec-grid" id="recGrid">
+        <!-- JS will populate -->
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
 
   <script type="module" src="./src/main.js"></script>
 </body>
